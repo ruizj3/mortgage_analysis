@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from mortgage_check import mortgage_check
+from budget_db import fetch_data_by_user
+
 app = Flask(__name__)
 CORS(app)
 
@@ -25,6 +27,14 @@ def mortgage_check_route():
         data = mortgage_check()
         
     return data
-
+@app.route('/budget')
+def budget_route():
+    userid = request.args.get('userid', type=int)
+    #month = request.args.get('month', type=str)
+    #category = request.args.get('category', type=str)
+    #budget = request.args.get('budget', type=float)
+    #spent = request.args.get('spent', type=float)
+    data = fetch_data_by_user('budget_lines',userid=userid)
+    return jsonify(data)
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
