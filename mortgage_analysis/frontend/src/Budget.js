@@ -1,98 +1,92 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as d3 from 'd3';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTable } from 'react-table';
 import './index.css';
 
 const apiUrl = process.env.REACT_APP_CONNECT_TO_BACKEND_URL;
 
-function Budget() {
-    const initialInputValues = {
-        userid: null,
-        d3Container: useRef(null),
-        budget: null
-    };
+function BudgetTable({ userid }) {
+    const [budgetData, setBudgetData] = useState([]);
 
-    const [inputs, setInputs] = useState([initialInputValues]);
+    const columns = React.useMemo(() => [
+        { Header: 'Budget ID', accessor: 'budgetid' },
+        { Header: 'User ID', accessor: 'userid' },
+        { Header: 'Month', accessor: 'month' },
+        { Header: 'Category', accessor: 'category' },
+        { Header: 'Goal', accessor: 'goal' },
+        { Header: 'CurrentValue', accessor: 'currentvalue' }
+    ], []);
 
-    const updateInput = (index, property, value) => {
-        const newInputs = [...inputs];
-        newInputs[index][property] = value;
-        setInputs(newInputs);
-    };
-
-    const getBudgetData = async (index) => {
-        const input = inputs[index];
-        const filteredInput = { userid: input.userid };
-        const params = new URLSearchParams(filteredInput).toString();
-        try {
-            const response = await axios.get(apiUrl+`/budget?${params}`);
-            updateInput(index, 'budget', response.data);
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        }
-    };
-
-    //useEffect(() => {
-    //    inputs.forEach((input, index) => {
-    //        if (!input.budget) {
-    //            getBudgetData(index);
-    //        }
-    //    });
-    //}, [inputs]);
+    const data = React.useMemo(() => budgetData, [budgetData]);
 
     useEffect(() => {
-        inputs.forEach((input, index) => {
-            if (input.budget) {
-                const data = JSON.parse(input.budget);
-                const container = d3.select(input.d3Container.current);
-                container.selectAll('*').remove();  // Clear previous table
+        if (userid) {
+            const fetchBudgetData = async () => {
+                const params = new URLSearchParams({ userid }).toString();
+                try {
+                    const response = await axios.get(apiUrl + `/budget?${params}`);
+                    setBudgetData(JSON.parse(response.data));
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                }
+            };
+            fetchBudgetData();
+        }
+    }, [userid]);
 
-                const table = container.append('table');
-                const thead = table.append('thead');
-                const tbody = table.append('tbody');
+    const {
+        getTableProps,
+        getTableBodyProps,
+        headerGroups,
+        rows,
+        prepareRow
+    } = useTable({ columns, data });
 
-                thead.append('tr')
-                    .selectAll('th')
-                    .data(["Budget ID", "User ID", "Month", "Category", "Goal", "CurrentValue"])
-                    .enter().append('th')
-                    .text(d => d)
-                    .style("border", "2px solid black");
+    return (
+        <div>
+            <table {...getTableProps()} className="table">
+                <thead>
+                    {headerGroups.map(headerGroup => (
+                        <tr {...headerGroup.getHeaderGroupProps()}>
+                            {headerGroup.headers.map(column => (
+                                <th {...column.getHeaderProps()}>{column.render('Header')}</th>
+                            ))}
+                        </tr>
+                    ))}
+                </thead>
+                <tbody {...getTableBodyProps()}>
+                    {rows.map(row => {
+                        prepareRow(row);
+                        return (
+                            <tr {...row.getRowProps()}>
+                                {row.cells.map(cell => (
+                                    <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
+                                ))}
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+}
 
-                const rows = tbody.selectAll('tr')
-                    .data(data)
-                    .enter().append('tr');
-
-                rows.selectAll('td')
-                    .data(d => [d.budgetid, d.userid, d.month, d.category, d.goal, d.currentvalue])
-                    .enter().append('td')
-                    .text(d => d)
-                    .style("border", "2px solid black");
-            }
-        });
-    }, [inputs]);
-
-    const handleFormSubmit = (index) => (event) => {
-        event.preventDefault(); // Prevent default form submission behavior
-        getBudgetData(index);
-    };
+function Budget() {
+    const [userid, setUserid] = useState(null);
 
     return (
         <div className="Budget">
-            {inputs.map((input, index) => (
-                <div key={index}>
-                    <label>
-                        UserID:
-                        <input
-                            type="number"
-                            value={input.userid}
-                            onChange={e => updateInput(index, 'userid', e.target.value)} />
-                    </label>
-                    <button onClick={handleFormSubmit(index)}>Submit</button>
-                    <div ref={input.d3Container}></div>
-                </div>
-            ))}
+            <label>
+                UserID:
+                <input
+                    type="number"
+                    value={userid || ''}
+                    onChange={e => setUserid(e.target.value)}
+                />
+            </label>
+            {userid && <BudgetTable userid={userid} />}
         </div>
-    )
+    );
 }
 
 export default Budget;
